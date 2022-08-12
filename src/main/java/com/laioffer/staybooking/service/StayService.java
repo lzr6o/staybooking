@@ -1,9 +1,11 @@
 package com.laioffer.staybooking.service;
 
 import com.laioffer.staybooking.exception.StayNotExistException;
+import com.laioffer.staybooking.model.Location;
 import com.laioffer.staybooking.model.Stay;
 import com.laioffer.staybooking.model.StayImage;
 import com.laioffer.staybooking.model.User;
+import com.laioffer.staybooking.repository.LocationRepository;
 import com.laioffer.staybooking.repository.StayRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -21,11 +23,15 @@ import java.util.stream.Collectors;
 public class StayService {
     private StayRepository stayRepository;
     private ImageStorageService imageStorageService;
+    private LocationRepository locationRepository;
+    private GeoCodingService geoCodingService;
 
     @Autowired
-    public StayService(StayRepository stayRepository, ImageStorageService imageStorageService) {
+    public StayService(StayRepository stayRepository, ImageStorageService imageStorageService, LocationRepository locationRepository, GeoCodingService geoCodingService) {
         this.stayRepository = stayRepository;
         this.imageStorageService = imageStorageService;
+        this.locationRepository = locationRepository;
+        this.geoCodingService = geoCodingService;
     }
 
     public List<Stay> listByUser(String username) {
@@ -41,10 +47,10 @@ public class StayService {
     }
 
     /*
-    * for each image : imageStorageService.save(image)
-    * collect url of each image
-    * set url to stay object
-    */
+     * for each image : imageStorageService.save(image)
+     * collect url of each image
+     * set url to stay object
+     */
     public void add(Stay stay, MultipartFile[] images) {
         List<String> mediaLinks = Arrays.stream(images).parallel().map(image -> imageStorageService.save(image)).collect(Collectors.toList());
         List<StayImage> stayImages = new ArrayList<>();
@@ -53,6 +59,8 @@ public class StayService {
         }
         stay.setImages(stayImages);
         stayRepository.save(stay);
+        Location location = geoCodingService.getLatLng(stay.getId(), stay.getAddress());
+        locationRepository.save(location);
     }
 
     @Transactional(isolation = Isolation.SERIALIZABLE)
